@@ -150,6 +150,29 @@ struct DMAAwaitTaskOpPattern : OpConversionPattern<DMAAwaitTaskOp> {
     if (!task_op) {
       return failure();
     }
+    AIE::TileOp tile = task_op.tryGetTileOp();
+    if (!tile)
+      return emitUnplacedTileError(op, task_op);
+    Location loc = op.getLoc();
+    const AIE::AIETargetModel &tm = AIE::getTargetModel(op);
+    if (!tm.hasTaskCompletionTokens()) {
+      // No task-completion token (AIE1): the channel has finished the task
+      // once its status shows nothing queued, running or stalled. Tasks on a
+      // channel run in push order, so this also covers every earlier push.
+      std::optional<uint32_t> status = tm.getDmaStatusAddress(
+          tile.getCol(), tile.getRow(), task_op.getChannel(),
+          task_op.getDirection());
+      uint32_t idle = tm.getDmaChannelIdleMask(task_op.getChannel());
+      if (!status || !idle)
+        return op.emitOpError("cannot await a task on this tile: the target "
+                              "has neither task-completion tokens nor a DMA "
+                              "status register for it");
+      rewriter.replaceOpWithNewOp<NpuMaskPollOp>(
+          op, createConstantI32(rewriter, loc, *status),
+          createConstantI32(rewriter, loc, 0),
+          createConstantI32(rewriter, loc, idle), nullptr, nullptr, nullptr);
+      return success();
+    }
     if (!task_op.getIssueToken()) {
       auto err = op.emitOpError(
           "Cannot wait on a BD that is not configured to issue a token.");
@@ -157,10 +180,6 @@ struct DMAAwaitTaskOpPattern : OpConversionPattern<DMAAwaitTaskOp> {
           << "Consider adding attribute `issue_token=true` here.";
       return err;
     }
-    AIE::TileOp tile = task_op.tryGetTileOp();
-    if (!tile)
-      return emitUnplacedTileError(op, task_op);
-    Location loc = op.getLoc();
     rewriter.replaceOpWithNewOp<NpuSyncOp>(
         op, createConstantI32(rewriter, loc, tile.getCol()),
         createConstantI32(rewriter, loc, tile.getRow()),

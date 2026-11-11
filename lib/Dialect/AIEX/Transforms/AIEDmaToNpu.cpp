@@ -185,6 +185,34 @@ public:
     uint32_t ctrl_offset = tm.getDmaControlAddress(
         op.getColumn(), op.getRow(), op.getChannel(), op.getDirection());
 
+    if (tm.getTargetArch() == AIE::AIEArch::AIE1) {
+      // AIE1 shim start queue (NOC_DMA{S2MM,MM2S}{0,1}STAQUE, control + 4)
+      // takes only the BD id: no repeat count, no completion token (an await
+      // polls the channel status instead). The channel control register
+      // (CTR_ENA, no pause) is enabled first; it is idempotent.
+      if (!tm.isShimNOCTile(op.getColumn(), op.getRow()))
+        return op.emitOpError("AIE1 runtime task queues are on shim tiles");
+      std::optional<uint32_t> bd_id = getConstantIntOperand(op.getBdId());
+      std::optional<uint64_t> repeat_cnt =
+          getConstantInt64Operand(op.getRepeatCount());
+      if (!bd_id)
+        return op.emitOpError("AIE1 needs a constant BD id");
+      if (!repeat_cnt || *repeat_cnt != 0)
+        return op.emitOpError("AIE1 shim task queues have no repeat count; "
+                              "push the task once per run");
+      Location loc = op->getLoc();
+      NpuWrite32Op::create(rewriter, loc,
+                           createConstantI32(rewriter, loc, ctrl_offset),
+                           createConstantI32(rewriter, loc, 1), nullptr,
+                           nullptr, nullptr);
+      NpuWrite32Op::create(rewriter, loc,
+                           createConstantI32(rewriter, loc, ctrl_offset + 0x4),
+                           createConstantI32(rewriter, loc, *bd_id & 0xFu),
+                           nullptr, nullptr, nullptr);
+      rewriter.eraseOp(op);
+      return success();
+    }
+
     // control packet for issuing token
     if (op.getIssueToken()) {
       // set the task-complete-token controller ID field in the dma control
@@ -784,9 +812,16 @@ public:
       return op->emitOpError("Zero padding is only available on MemTile");
 
     std::vector<uint32_t> words(layout->numWords, 0);
+    // AIE1 shim BDs describe fewer fields (no strides, iteration, padding,
+    // locks or out-of-order id): a value the layout cannot hold is an error
+    // there rather than dropped.
+    const bool strict = tm.getTargetArch() == AIE::AIEArch::AIE1;
+    const char *dropped = nullptr;
     auto set = [&](const AIE::DmaBdField &field, uint64_t value) {
       if (field.exists())
         words[field.word] |= field.place(value);
+      else if (strict && value && !dropped)
+        dropped = "a buffer descriptor field this tile's BD layout lacks";
     };
     uint64_t bufferOffset = op.getBufferOffset();
     if (tm.isCoreTile(col, row))
@@ -823,6 +858,10 @@ public:
     set(layout->lockAcqEnable, op.getLockAcqEnable());
     set(layout->lockAcqValue, op.getLockAcqVal());
     set(layout->lockAcqId, op.getLockAcqId());
+    if (layout->secureAccess.exists())
+      set(layout->secureAccess, 1);
+    if (dropped)
+      return op->emitOpError("sets ") << dropped;
 
     uint32_t bd_id = op.getBdId();
     uint64_t bd_addr = tm.getDmaBdAddress(col, row, bd_id);

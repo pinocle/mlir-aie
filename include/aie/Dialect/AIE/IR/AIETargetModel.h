@@ -78,6 +78,9 @@ struct DmaBdLayout {
   DmaBdField d0ZeroBefore, d1ZeroBefore, d2ZeroBefore;
   DmaBdField d0ZeroAfter, d1ZeroAfter, d2ZeroAfter;
   DmaBdField burstLength, axcache;
+  // A BD bit set to 1 for every runtime transfer (AIE1 shim SECACC: secure
+  // AXI access, as aie-rt XAie_DmaSetAxi with Secure = 1).
+  DmaBdField secureAccess;
   DmaBdField nextBd, useNextBd, validBd;
   DmaBdField lockRelValue, lockRelId, lockAcqEnable, lockAcqValue, lockAcqId;
 };
@@ -556,11 +559,27 @@ public:
   /// getDmaStatusAddress() register (0 when unsupported). The field does not
   /// count the task the channel is running.
   virtual uint32_t getDmaTaskQueueSizeMask() const { return 0; }
+  /// As getDmaTaskQueueSizeMask(), for one channel: on targets whose channels
+  /// of one direction share a status register (AIE1 shim) the field moves with
+  /// the channel.
+  virtual uint32_t getDmaTaskQueueSizeMask(int /*channel*/) const {
+    return getDmaTaskQueueSizeMask();
+  }
 
   /// Return the bits of the getDmaStatusAddress() register that are all clear
   /// exactly when the channel has finished every task pushed to it: nothing
   /// queued, nothing running, nothing stalled (0 when unsupported).
   virtual uint32_t getDmaChannelIdleMask() const { return 0; }
+  /// As getDmaChannelIdleMask(), for one channel (see
+  /// getDmaTaskQueueSizeMask(int)).
+  virtual uint32_t getDmaChannelIdleMask(int /*channel*/) const {
+    return getDmaChannelIdleMask();
+  }
+
+  /// Whether a pushed task can raise a task-completion token (TCT) that the
+  /// runtime sequence awaits (aiex.npu.sync). AIE1 has none: an await polls
+  /// the channel status until getDmaChannelIdleMask(channel) is clear.
+  virtual bool hasTaskCompletionTokens() const { return true; }
 
   /// Return the DMA task-queue register address relative to its tile.
   uint32_t getLocalDmaControlAddress(int col, int row, int channel,
@@ -621,8 +640,9 @@ public:
   /// resource in hardware, but no shipping target gives channels different
   /// depths, so this forwards to the flat accessor; carrying the parameters
   /// spares call sites churn if one ever does.
-  uint32_t getDmaTaskQueueDepth(int /*col*/, int /*row*/, int /*channel*/,
-                                AIE::DMAChannelDir /*direction*/) const {
+  virtual uint32_t getDmaTaskQueueDepth(int /*col*/, int /*row*/,
+                                        int /*channel*/,
+                                        AIE::DMAChannelDir /*direction*/) const {
     return getDmaTaskQueueDepth();
   }
 
@@ -715,9 +735,14 @@ public:
   uint32_t getMaxPacketId() const override { return 31; }
   uint32_t getMaxOutOfOrderId() const override { return 0; }
   uint32_t getMaxRepeatCount() const override { return 0; }
-  // AIE1 has no queued DMA-task model (BDs are started directly), so there is
-  // no queue to overflow.
+  // AIE1 core-tile DMAs start BDs directly, with no task queue. Shim DMAs
+  // have a four-entry start queue per channel (NOC_DMA{S2MM,MM2S}{0,1}STAQUE;
+  // aie-rt XAie_DmaGetMaxQueueSize), which the runtime sequence pushes to.
   uint32_t getDmaTaskQueueDepth() const override { return 0; }
+  uint32_t getDmaTaskQueueDepth(int col, int row, int channel,
+                                AIE::DMAChannelDir direction) const override {
+    return isShimNOCTile(col, row) ? 4 : 0;
+  }
 
   std::optional<TileID> getMemWest(TileID src) const override;
   std::optional<TileID> getMemEast(TileID src) const override;
@@ -764,8 +789,10 @@ public:
     return 16; // AIE1 has no MemTiles, always 16
   }
   uint32_t getBDMaxDims(AIETileType tileType) const override {
-    // AIE1 has no MemTiles; preserve the historical BD dimension limit.
-    return 3;
+    // AIE1 has no MemTiles. A shim BD (NOC_DMABD*: address, length, control,
+    // AXI, packet) moves one contiguous run; core tiles keep the historical
+    // limit.
+    return tileType == AIETileType::ShimNOCTile ? 1 : 3;
   }
   uint64_t getDmaBdMaxLen(AIETileType tileType) const override {
     // AIE1 has no mem tiles. Core tiles use a 13-bit length field with a +1
@@ -799,6 +826,25 @@ public:
 
   uint32_t getDmaControlAddress(int col, int row, int channel,
                                 AIE::DMAChannelDir direction) const override;
+
+  // Shim DMAs only (NOC_DMAS2MMSTA / NOC_DMAMM2SSTA): both channels of a
+  // direction share one register, so the field masks depend on the channel.
+  std::optional<uint32_t>
+  getDmaStatusAddress(int col, int row, int channel,
+                      AIE::DMAChannelDir direction) const override;
+  // STAQUESIZ0 (8:6) / STAQUESIZ1 (11:9).
+  uint32_t getDmaTaskQueueSizeMask(int channel) const override {
+    return 0x7u << (6 + 3 * channel);
+  }
+  // STAQUESIZ, STA (2 bits per channel, 0 = idle) and STAL (stalled).
+  uint32_t getDmaChannelIdleMask(int channel) const override {
+    return getDmaTaskQueueSizeMask(channel) | (0x3u << (2 * channel)) |
+           (1u << (4 + channel));
+  }
+  bool hasTaskCompletionTokens() const override { return false; }
+
+  using AIETargetModel::getDmaBdLayout;
+  const DmaBdLayout *getDmaBdLayout(AIETileType tileType) const override;
 
   uint32_t getNumMemTileRows() const override { return 0; }
   uint32_t getMemTileSize() const override { return 0; }
@@ -1295,6 +1341,9 @@ public:
 /// (aie_runtime::TxnDeviceInfo::devGen). Both the static binary emitter and the
 /// generated-C++ builder read it from here, so a new device family is one edit.
 inline uint8_t txnDeviceGen(const AIETargetModel &tm) {
+  // aie-rt XAIE_DEV_GEN_AIE (1), XAIE_DEV_GEN_AIE2IPU (3), XAIE_DEV_GEN_AIE2P (4).
+  if (tm.getTargetArch() == AIEArch::AIE1)
+    return 1;
   return llvm::isa<BaseNPU2TargetModel>(tm) ? 4 : 3;
 }
 

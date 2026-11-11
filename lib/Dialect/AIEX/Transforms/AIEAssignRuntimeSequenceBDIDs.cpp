@@ -461,14 +461,18 @@ struct AIEAssignRuntimeSequenceBDIDsPass
     std::optional<uint32_t> value = getConstantIntOperand(poll.getValue());
     const AIETargetModel &tm =
         poll->getParentOfType<AIE::DeviceOp>().getTargetModel();
-    uint32_t field = tm.getDmaTaskQueueSizeMask();
-    uint32_t idle = tm.getDmaChannelIdleMask();
-    if (!address || !mask || !value || !field)
+    if (!address || !mask || !value)
       return;
     for (auto &[key, started] : startedOnChannel) {
       if (tm.getDmaStatusAddress(key[0], key[1], key[3],
                                  static_cast<AIE::DMAChannelDir>(key[2])) !=
           address)
+        continue;
+      // Channels may share a status register (AIE1): the fields are per
+      // channel.
+      uint32_t field = tm.getDmaTaskQueueSizeMask(key[3]);
+      uint32_t idle = tm.getDmaChannelIdleMask(key[3]);
+      if (!field)
         continue;
       if (idle && (*mask & idle) == idle && (*value & idle) == 0)
         return noteDrained(key, 0);
@@ -667,8 +671,6 @@ struct AIEAssignRuntimeSequenceBDIDsPass
         return success();
       }
 
-    uint32_t field = tm.getDmaTaskQueueSizeMask();
-    uint32_t idle = tm.getDmaChannelIdleMask();
     DMAConfigureTaskOp victim;
     size_t victimQueuedBehind = 0;
     uint64_t victimOrder = 0;
@@ -687,7 +689,8 @@ struct AIEAssignRuntimeSequenceBDIDsPass
       if (last == started.rend() || last->finished)
         continue;
       size_t queuedBehind = std::distance(started.rbegin(), last);
-      if (queuedBehind == 0 ? !idle : !field)
+      if (queuedBehind == 0 ? !tm.getDmaChannelIdleMask(key[3])
+                            : !tm.getDmaTaskQueueSizeMask(key[3]))
         continue;
       // Rule 1 before rule 2, then oldest.
       if (victim && std::make_pair(queuedBehind == 0, last->order) >=
@@ -705,6 +708,8 @@ struct AIEAssignRuntimeSequenceBDIDsPass
         key[0], key[1], key[3], static_cast<AIE::DMAChannelDir>(key[2]));
     if (!status)
       return failure();
+    uint32_t field = tm.getDmaTaskQueueSizeMask(key[3]);
+    uint32_t idle = tm.getDmaChannelIdleMask(key[3]);
     uint32_t mask = idle;
     size_t unfinished = 0;
     if (victimQueuedBehind > 0) {

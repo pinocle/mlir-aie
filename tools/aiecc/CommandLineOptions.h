@@ -314,6 +314,7 @@ inline cl::opt<bool> foldDDRAddrOffsetOpt(
 // writes them out. (Request the pre-link objects instead with
 // --get=objects_{0}.o.)
 inline bool generateCoreElfs = false;
+inline bool generateXaieConfig = false;
 
 inline bool generateInputWithAddresses = false;
 
@@ -440,6 +441,7 @@ inline llvm::ArrayRef<OutputSelector> outputSelectors() {
       {"core-elfs", "elfs_{0}.elf", &generateCoreElfs},
       {"npu-insts", "insts_{0}.bin", &generateNpuInsts},
       {"npu-cpp", "npu_{0}.cpp", &generateNpuCpp},
+      {"xaie-config", "aie_inc_{0}.cpp", &generateXaieConfig},
       {"elf", "design.elf", &generateElf},
       {"cdo", "cdo_{0}", &generateCdo},
       {"pdi", "{0}.pdi", &generatePdi},

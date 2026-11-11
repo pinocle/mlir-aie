@@ -302,11 +302,59 @@ AIE1TargetModel::getDmaControlAddress(int col, int row, int channel,
     llvm_unreachable(
         "AIE1TargetModel::getDmaControlAddress called for non-DMA tile");
 
+  // MM2S control registers follow the two S2MM channels' (0x10 bytes): shim
+  // NOC_DMAMM2S0CTR is 0x1D150, core DMA_MM2S_0_Ctrl 0x1DE10 (aie-rt
+  // xaiegbl_params.h).
   if (direction == AIE::DMAChannelDir::MM2S)
-    offset += 010;
+    offset += 0x10;
 
   return ((col & 0xff) << getColumnShift()) | ((row & 0xff) << getRowShift()) |
          offset;
+}
+
+std::optional<uint32_t>
+AIE1TargetModel::getDmaStatusAddress(int col, int row, int /*channel*/,
+                                     AIE::DMAChannelDir direction) const {
+  // NOC_DMAS2MMSTA 0x1D160 / NOC_DMAMM2SSTA 0x1D164, one per direction.
+  if (!isShimNOCTile(col, row))
+    return std::nullopt;
+  uint32_t offset =
+      direction == AIE::DMAChannelDir::MM2S ? 0x0001D164 : 0x0001D160;
+  return ((col & 0xff) << getColumnShift()) | ((row & 0xff) << getRowShift()) |
+         offset;
+}
+
+// AIE1 shim BD, five words (aie-rt xaiegbl_params.h NOC_DMABD0*):
+//   0 ADDLOW[31:0]
+//   1 BUFLEN[31:0], in 32-bit words
+//   2 ADDHIG[31:16] USENEXBD[15] NEXBD[14:11] LOCKID[10:7] ENAREL[6]
+//     RELVAL[5] USERELVAL[4] ENAACQ[3] ACQVAL[2] USEACQVAL[1] VALBD[0]
+//   3 SMID[31:28] BURLEN[10:9] AXQ[8:5] SECACC[4] AXC[3:0]
+//   4 ENAPKT[31] PKTTYP[14:12] ID[4:0]
+// The buffer address is the base of a runtime argument: aiex.npu.address_patch
+// names word 0 and the runtime writes the 48-bit address into ADDLOW and
+// ADDHIG. Shim locks and strides are not described, so a BD that uses them is
+// rejected by the runtime BD lowering.
+static DmaBdLayout makeAIE1ShimBdLayout() {
+  DmaBdLayout l;
+  l.numWords = 5;
+  l.bufferOffset = {0, 0, 32};
+  l.bufferLength = {1, 0, 32};
+  l.useNextBd = {2, 15, 1};
+  l.nextBd = {2, 11, 4};
+  l.validBd = {2, 0, 1};
+  l.burstLength = {3, 9, 2};
+  l.secureAccess = {3, 4, 1};
+  l.axcache = {3, 0, 4};
+  l.enablePacket = {4, 31, 1};
+  l.packetType = {4, 12, 3};
+  l.packetId = {4, 0, 5};
+  return l;
+}
+
+const DmaBdLayout *AIE1TargetModel::getDmaBdLayout(AIETileType tileType) const {
+  static const DmaBdLayout shim = makeAIE1ShimBdLayout();
+  return tileType == AIETileType::ShimNOCTile ? &shim : nullptr;
 }
 
 uint32_t

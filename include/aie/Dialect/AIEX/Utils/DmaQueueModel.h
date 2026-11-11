@@ -192,7 +192,7 @@ inline mlir::LogicalResult
 insertQueueSpaceWait(mlir::Operation *before, const AIE::AIETargetModel &tm,
                      int col, int row, uint32_t channel, AIE::DMAChannelDir dir,
                      uint32_t depth) {
-  uint32_t fieldMask = tm.getDmaTaskQueueSizeMask();
+  uint32_t fieldMask = tm.getDmaTaskQueueSizeMask(channel);
   if (!fieldMask || depth == 0 || (depth & (depth - 1)) != 0)
     return mlir::failure();
   std::optional<uint32_t> statusAddr =
@@ -328,7 +328,7 @@ inline void guardSequenceQueueDepth(mlir::Region &body, DmaQueueModel &queue,
       auto address = poll.getAbsoluteAddress();
       auto mask = getConstantIntOperand(poll.getMask());
       auto value = getConstantIntOperand(poll.getValue());
-      uint32_t fieldMask = tm.getDmaTaskQueueSizeMask();
+      uint32_t fieldMask = tm.getDmaTaskQueueSizeMask(key[3]);
       if (!address || !mask || !value || !fieldMask ||
           (depth & (depth - 1)) != 0)
         return false;

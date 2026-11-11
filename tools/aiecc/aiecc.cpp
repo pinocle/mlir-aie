@@ -2132,6 +2132,19 @@ buildMainGraph(mlir::MLIRContext &context, Graph &g,
 
   auto &hostExe = buildHostExeSubgraph(aieInc, perDeviceArches);
 
+  // The same configuration source per device under its own name, as an
+  // artifact (--get-xaie-config): a host runtime that configures the array
+  // with libxaie and replays the runtime sequence (AIE1) builds it itself.
+  auto &xaieConfig = staticPerDevice.map<std::string>(
+      "aie_inc_{0}.cpp",
+      [](const Item<OpInModule<DeviceOp>> &item,
+         Item<std::string> &out) -> mlir::LogicalResult {
+        DeviceOp d = item.get().op;
+        llvm::raw_string_ostream os(out.value.emplace());
+        return xilinx::AIE::AIETranslateToXAIEV2(item.get().module.get(), os,
+                                                 d.getSymName());
+      });
+
   //--------------------------------------------------------------------------//
   // AIE simulator Work folder
   //--------------------------------------------------------------------------//
@@ -2150,6 +2163,7 @@ buildMainGraph(mlir::MLIRContext &context, Graph &g,
   bool anySpecificOutput =
       generateInputWithAddresses || generateInputWithSymbols ||
       generateScratchpadParams || generateNpuInsts || generateNpuCpp ||
+      generateXaieConfig ||
       keepLoc || generateElf || generateCdo || generatePdi || generateTxn ||
       generateCtrlpkt || generateXclbin || generateFullElf || wantAiesim ||
       doCompileHost || !getOutputs.empty() || !cutOutputs.empty();
@@ -2174,6 +2188,9 @@ buildMainGraph(mlir::MLIRContext &context, Graph &g,
   }
   if (generateNpuCpp) {
     outputs.push_back(&npuCpp);
+  }
+  if (generateXaieConfig) {
+    outputs.push_back(&xaieConfig);
   }
   if (keepLoc) {
     outputs.push_back(&npuLocmap);
