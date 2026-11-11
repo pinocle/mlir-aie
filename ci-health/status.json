@@ -1,0 +1,375 @@
+{
+ "schema": 1,
+ "generated_at": "2026-11-11T19:52:36+00:00",
+ "repo": "pinocle/mlir-aie",
+ "window_days": 14,
+ "critical": [
+  {
+   "file": "buildAndTestRyzenAI.yml",
+   "title": "Linux hardware tests",
+   "every": 24,
+   "legs": true,
+   "why": "lit and IRON tests on npu1 and npu2; the only hardware test of main",
+   "runs": 0,
+   "main": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "latest_main": null,
+   "newest_main": null,
+   "latest_main_jobs": null,
+   "main_runs": [],
+   "pull_requests": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "merge_queue": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "flaky": {
+    "commits": 0,
+    "flaky": 0,
+    "rate": null
+   },
+   "minutes_median": null,
+   "minutes_p90": null,
+   "queued_median": null
+  },
+  {
+   "file": "buildAndTestRyzenAIWindows.yml",
+   "title": "Windows hardware tests",
+   "every": 24,
+   "legs": true,
+   "why": "the same on a Windows Strix Halo machine",
+   "runs": 0,
+   "main": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "latest_main": null,
+   "newest_main": null,
+   "latest_main_jobs": null,
+   "main_runs": [],
+   "pull_requests": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "merge_queue": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "flaky": {
+    "commits": 0,
+    "flaky": 0,
+    "rate": null
+   },
+   "minutes_median": null,
+   "minutes_p90": null,
+   "queued_median": null
+  },
+  {
+   "file": "buildAndTestMulti.yml",
+   "title": "Compile across platforms",
+   "every": 24,
+   "legs": false,
+   "why": "compilers, assertions and RTTI on Linux and Windows",
+   "runs": 1,
+   "main": {
+    "passed": 0,
+    "failed": 1,
+    "rate": 0.0
+   },
+   "latest_main": {
+    "id": 43008987135,
+    "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987135",
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-11-11T11:05:10Z",
+    "run_started_at": "2026-11-11T11:05:10Z",
+    "updated_at": "2026-11-11T11:27:04Z",
+    "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+    "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+    "attempt": 1
+   },
+   "newest_main": {
+    "id": 43008987135,
+    "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987135",
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-11-11T11:05:10Z",
+    "run_started_at": "2026-11-11T11:05:10Z",
+    "updated_at": "2026-11-11T11:27:04Z",
+    "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+    "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+    "attempt": 1
+   },
+   "latest_main_jobs": null,
+   "main_runs": [
+    {
+     "id": 43008987135,
+     "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987135",
+     "status": "completed",
+     "conclusion": "failure",
+     "created_at": "2026-11-11T11:05:10Z",
+     "run_started_at": "2026-11-11T11:05:10Z",
+     "updated_at": "2026-11-11T11:27:04Z",
+     "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+     "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+     "attempt": 1
+    }
+   ],
+   "pull_requests": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "merge_queue": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "flaky": {
+    "commits": 0,
+    "flaky": 0,
+    "rate": null
+   },
+   "minutes_median": null,
+   "minutes_p90": null,
+   "queued_median": 0.0
+  },
+  {
+   "file": "buildAndTestPythons.yml",
+   "title": "Python versions",
+   "every": 24,
+   "legs": false,
+   "why": "the tests on each supported Python",
+   "runs": 1,
+   "main": {
+    "passed": 1,
+    "failed": 0,
+    "rate": 1.0
+   },
+   "latest_main": {
+    "id": 43008987166,
+    "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987166",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-11T11:05:10Z",
+    "run_started_at": "2026-11-11T11:05:10Z",
+    "updated_at": "2026-11-11T11:23:54Z",
+    "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+    "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+    "attempt": 1
+   },
+   "newest_main": {
+    "id": 43008987166,
+    "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987166",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-11T11:05:10Z",
+    "run_started_at": "2026-11-11T11:05:10Z",
+    "updated_at": "2026-11-11T11:23:54Z",
+    "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+    "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+    "attempt": 1
+   },
+   "latest_main_jobs": null,
+   "main_runs": [
+    {
+     "id": 43008987166,
+     "url": "https://github.com/pinocle/mlir-aie/actions/runs/43008987166",
+     "status": "completed",
+     "conclusion": "success",
+     "created_at": "2026-11-11T11:05:10Z",
+     "run_started_at": "2026-11-11T11:05:10Z",
+     "updated_at": "2026-11-11T11:23:54Z",
+     "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+     "title": "AIE1 (xcvc1902) runtime sequences through the NPU lowering",
+     "attempt": 1
+    }
+   ],
+   "pull_requests": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "merge_queue": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "flaky": {
+    "commits": 0,
+    "flaky": 0,
+    "rate": null
+   },
+   "minutes_median": 18.7,
+   "minutes_p90": 18.7,
+   "queued_median": 0.0
+  },
+  {
+   "file": "lintAndFormat.yml",
+   "title": "Lint and format",
+   "every": 24,
+   "legs": false,
+   "why": "clang-tidy, pyright and the docs checks",
+   "runs": 0,
+   "main": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "latest_main": null,
+   "newest_main": null,
+   "latest_main_jobs": null,
+   "main_runs": [],
+   "pull_requests": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "merge_queue": {
+    "passed": 0,
+    "failed": 0,
+    "rate": null
+   },
+   "flaky": {
+    "commits": 0,
+    "flaky": 0,
+    "rate": null
+   },
+   "minutes_median": null,
+   "minutes_p90": null,
+   "queued_median": null
+  }
+ ],
+ "merge_time": {
+  "merged": 0,
+  "hours_median": null,
+  "hours_p90": null,
+  "open": 0,
+  "open_drafts": 0,
+  "open_over_30_days": 0
+ },
+ "workflows": [
+  {
+   "file": "nightlyKernelChecks.yml",
+   "title": "Kernel checks",
+   "every": 24,
+   "legs": true,
+   "why": "the Kernels section's numbers; a leg that found no runner publishes nothing",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "nightlyComponentChecks.yml",
+   "title": "Placement and performance checks",
+   "every": 24,
+   "legs": true,
+   "why": "the Performance and Placement sections' numbers",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "routerNightlyTests.yml",
+   "title": "Router model-based tests",
+   "every": 24,
+   "why": "the packet router against its model over a large corpus, plus mutation testing of both",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "modelBasedTests.yml",
+   "title": "Allocator model-based tests",
+   "every": 24,
+   "why": "buffer placement against its model over a corpus many times check-aie's",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "buildRyzenWheels.yml",
+   "title": "Ryzen AI wheels",
+   "every": 24,
+   "legs": true,
+   "why": "refreshes the latest-wheels releases users install from",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "mlirDistro.yml",
+   "title": "MLIR distro from LLVM head",
+   "every": 4,
+   "why": "early warning that upstream LLVM broke the build",
+   "runs": [
+    {
+     "id": 43085837539,
+     "url": "https://github.com/pinocle/mlir-aie/actions/runs/43085837539",
+     "status": "in_progress",
+     "conclusion": null,
+     "created_at": "2026-11-11T19:17:39Z",
+     "run_started_at": "2026-11-11T19:17:39Z",
+     "updated_at": "2026-11-11T19:17:52Z",
+     "head_sha": "ba05718cab900255e4111893702f3d761174e8c0",
+     "title": "MLIR Distro",
+     "attempt": 1
+    }
+   ],
+   "jobs": null
+  },
+  {
+   "file": "pruneReleaseAssets.yml",
+   "title": "Prune release assets",
+   "every": 24,
+   "why": "keeps dev-wheels under 1,000 assets; when it stops, PR wheel uploads fail",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "buildAndTestRyzenAISw.yml",
+   "title": "Ryzen AI Software build",
+   "every": 24,
+   "why": "the Docker build against Ryzen AI Software",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "codeCoverage.yml",
+   "title": "Code coverage",
+   "every": 24,
+   "why": "the coverage report, as an artifact",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "update-llvm.yml",
+   "title": "LLVM bump",
+   "every": 384,
+   "why": "opens the LLVM bump pull request on the 1st and 15th",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "update-peano.yml",
+   "title": "Peano bump",
+   "every": 168,
+   "why": "opens the Peano bump pull request each Monday",
+   "runs": [],
+   "jobs": null
+  },
+  {
+   "file": "scorecard.yml",
+   "title": "OpenSSF Scorecard",
+   "every": 168,
+   "why": "the supply-chain scan, to the Security tab",
+   "runs": [],
+   "jobs": null
+  }
+ ]
+}
