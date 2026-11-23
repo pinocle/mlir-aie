@@ -7,7 +7,9 @@
 
 #include "../aie_arch.h"
 
-#if AIE_TUNED_AIE2
+#if AIE_ARCH_AIE1
+#include "relu_aie1.h"
+#elif AIE_TUNED_AIE2
 #include "relu_aie2.h"
 #else
 #include "relu_aie2p.h"

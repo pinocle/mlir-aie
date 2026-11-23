@@ -719,7 +719,7 @@ void conv2dk3_i8_vector(
     // in_b = aie::load_v<64>(wtsLine[kernel_height_start]);
     // wtsLine[kernel_height_start] +=64;       // wts ic0..7(oc0..7)
 
-    MMUL4x8x8 acc1 = aie::zeros<acc32, 32>();
+    MMUL4x8x8 acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
     for (int oc = 0; oc < (output_channels / 8); oc++) {
       for (int ic = 0; ic < (input_channels / 8); ic++) {
@@ -779,7 +779,7 @@ void conv2dk3_i8_vector(
       aie::store_v(output, o1);
       output += iw * 8; // Shift to next oc/8 offset for left side
 
-      acc1 = aie::zeros<acc32, 32>();
+      acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
       // Shift back to beginning of input
       for (int i = kernel_height_start; i < kernel_height_end; i++) {
@@ -974,7 +974,7 @@ void conv2dk3_i8_vector(
   //
   // --------------------------------------------------------------------
   {
-    MMUL4x8x8 acc1 = aie::zeros<acc32, 32>();
+    MMUL4x8x8 acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
     for (int oc = 0; oc < (output_channels / 8); oc++) {
       for (int ic = 0; ic < (input_channels / 8); ic++) {
         AIE_PREPARE_FOR_PIPELINING
@@ -1017,7 +1017,7 @@ void conv2dk3_i8_vector(
       aie::store_v(output, o1);
       output += iw * 8; // Shift to next oc/8
 
-      acc1 = aie::zeros<acc32, 32>();
+      acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
       for (int i = kernel_height_start; i < kernel_height_end; i++) {
         line[i] -= (input_channels / 8) *
@@ -1151,7 +1151,7 @@ void conv2dk3_ui8_vector(
     // in_b = aie::load_v<64>(wtsLine[kernel_height_start]);
     // wtsLine[kernel_height_start] +=64;       // wts ic0..7(oc0..7)
 
-    MMUL4x8x8 acc1 = aie::zeros<acc32, 32>();
+    MMUL4x8x8 acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
     for (int oc = 0; oc < (output_channels / 8); oc++) {
       for (int ic = 0; ic < (input_channels / 8); ic++) {
@@ -1213,7 +1213,7 @@ void conv2dk3_ui8_vector(
       aie::store_v(output, o1);
       output += iw * 8; // Shift to next oc/8 offset for left side
 
-      acc1 = aie::zeros<acc32, 32>();
+      acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
       // Shift back to beginning of input
       for (int i = kernel_height_start; i < kernel_height_end; i++) {
@@ -1467,7 +1467,7 @@ void conv2dk3_ui8_vector(
   //
   // --------------------------------------------------------------------
   {
-    MMUL4x8x8 acc1 = aie::zeros<acc32, 32>();
+    MMUL4x8x8 acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
     for (int oc = 0; oc < (output_channels / 8); oc++) {
       for (int ic = 0; ic < (input_channels / 8); ic++) {
         AIE_PREPARE_FOR_PIPELINING
@@ -1511,7 +1511,7 @@ void conv2dk3_ui8_vector(
       aie::store_v(output, o1);
       output += iw * 8; // Shift to next oc/8
 
-      acc1 = aie::zeros<acc32, 32>();
+      acc1 = aie::zeros<MMUL4x8x8::accum_type::value_type, MMUL4x8x8::size_C>();
 
       AIE_PREPARE_FOR_PIPELINING
       for (int i = kernel_height_start; i < kernel_height_end; i++) {

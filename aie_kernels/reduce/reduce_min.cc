@@ -18,6 +18,7 @@
 #define REDUCE_MIN_ELEMS input_size
 #endif
 
+#if !AIE_ARCH_AIE1
 void _reduce_min_vector(int32_t *restrict in, int32_t *restrict out,
                         const int32_t input_size) {
 
@@ -55,6 +56,28 @@ void _reduce_min_vector(int32_t *restrict in, int32_t *restrict out,
   return;
 }
 
+#else
+// AIE1: the same reduction with the AIE API (8 lanes of 32 bits); the
+// v16int32 intrinsics above are AIE2's.
+template <typename T>
+static void _reduce_min_aie1(T *restrict in, T *restrict out,
+                              const int32_t input_size) {
+  event0();
+  constexpr int32_t L = 8;
+  aie::vector<T, L> acc = aie::broadcast<T, L>(std::is_same_v<T, float> ? (T)std::numeric_limits<float>::infinity() : (T)INT32_MAX);
+  AIE_PREPARE_FOR_PIPELINING
+  for (int32_t i = 0; i < REDUCE_MIN_ELEMS; i += L)
+    acc = aie::min(acc, aie::load_v<L>(in + i));
+  *out = aie::reduce_min(acc);
+  event1();
+}
+
+static void _reduce_min_vector(int32_t *restrict in, int32_t *restrict out,
+                               const int32_t input_size) {
+  _reduce_min_aie1<int32_t>(in, out, input_size);
+}
+#endif // !AIE_ARCH_AIE1
+
 void _reduce_min_scalar(int32_t *restrict in, int32_t *restrict out,
                         const int32_t input_size) {
   event0();
@@ -71,6 +94,7 @@ void _reduce_min_scalar(int32_t *restrict in, int32_t *restrict out,
 
 // The identity of a bf16 min is +inf, not the largest finite value, so an
 // all-+inf tile reduces to +inf.
+#if AIE_BF16_LANES
 static inline bfloat16 bf16_min_identity() {
   return static_cast<bfloat16>(std::numeric_limits<float>::infinity());
 }
@@ -106,8 +130,11 @@ static void _reduce_min_scalar_bf16(bfloat16 *restrict in,
   event1();
 }
 
+#endif // AIE_BF16_LANES
+
 extern "C" {
 
+#if AIE_BF16_LANES
 void reduce_min_vector_bfloat16(bfloat16 *a_in, bfloat16 *c_out,
                                 int32_t input_size) {
   _reduce_min_vector_bf16(a_in, c_out, input_size);
@@ -118,6 +145,8 @@ void reduce_min_scalar_bfloat16(bfloat16 *a_in, bfloat16 *c_out,
   _reduce_min_scalar_bf16(a_in, c_out, input_size);
 }
 
+#endif // AIE_BF16_LANES
+
 void reduce_min_vector(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_min_vector(a_in, c_out, input_size);
 }
@@ -125,5 +154,11 @@ void reduce_min_vector(int32_t *a_in, int32_t *c_out, int32_t input_size) {
 void reduce_min_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_min_scalar(a_in, c_out, input_size);
 }
+
+#if AIE_F32_LANES
+void reduce_min_vector_f32(float *a_in, float *c_out, int32_t input_size) {
+  _reduce_min_aie1<float>(a_in, c_out, input_size);
+}
+#endif // AIE_F32_LANES
 
 } // extern "C"

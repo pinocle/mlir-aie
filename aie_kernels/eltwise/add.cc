@@ -32,6 +32,12 @@ void eltwise_add(T_in *a, T_in *b, T_out *c) {
 // only the a port has.
 #define ADD_UNROLL 4
 
+// Lanes the vector loops walk: bf16 where the vector unit has it, f32 on an
+// architecture without bf16 (AIE_F32_LANES, see aie_arch.h).
+template <typename T> constexpr int eltwise_add_lanes() {
+  return std::is_same_v<T, float> ? AIE_F32_LANES : AIE_BF16_LANES;
+}
+
 // The tuned paths run one chain per iteration, which pipelines (II1 on AIE2P)
 // with restrict pointers and a rolled loop. Only a converts on load; b loads
 // as bf16 on the b port and is added as b * 1 in a mac.
@@ -54,7 +60,7 @@ void eltwise_vadd_mac(aie::restrict_vector_iterator<T_in, vec_factor> &pA,
 template <typename T_in, typename T_out, const int N>
 void eltwise_vadd(T_in *__restrict a, T_in *__restrict b, T_out *__restrict c) {
 
-  constexpr int vec_factor = AIE_BF16_LANES;
+  constexpr int vec_factor = eltwise_add_lanes<T_in>();
   event0();
   auto pA1 = aie::begin_restrict_vector<vec_factor>(a);
   auto pB1 = aie::begin_restrict_vector<vec_factor>(b);
@@ -92,7 +98,7 @@ void eltwise_vadd(T_in *__restrict a, T_in *__restrict b, T_out *__restrict c) {
 template <typename T_in, typename T_out>
 void eltwise_vadd_size(T_in *__restrict a, T_in *__restrict b,
                        T_out *__restrict c, int size) {
-  constexpr int vec_factor = AIE_BF16_LANES;
+  constexpr int vec_factor = eltwise_add_lanes<T_in>();
   event0();
   auto pA1 = aie::begin_restrict_vector<vec_factor>(a);
   auto pB1 = aie::begin_restrict_vector<vec_factor>(b);
@@ -136,6 +142,7 @@ void eltwise_vadd_size(T_in *__restrict a, T_in *__restrict b,
 
 extern "C" {
 
+#if AIE_BF16_LANES
 void eltwise_add_bf16_scalar(bfloat16 *a_in, bfloat16 *b_in, bfloat16 *c_out) {
   eltwise_add<bfloat16, bfloat16, 1024>(a_in, b_in, c_out);
 }
@@ -148,5 +155,17 @@ void eltwise_add_bf16_vector_size(bfloat16 *a_in, bfloat16 *b_in,
                                   bfloat16 *c_out, int size) {
   eltwise_vadd_size<bfloat16, bfloat16>(a_in, b_in, c_out, size);
 }
+#endif // AIE_BF16_LANES
+
+#if AIE_F32_LANES
+void eltwise_add_f32_vector(float *a_in, float *b_in, float *c_out) {
+  eltwise_vadd<float, float, 1024>(a_in, b_in, c_out);
+}
+
+void eltwise_add_f32_vector_size(float *a_in, float *b_in, float *c_out,
+                                  int size) {
+  eltwise_vadd_size<float, float>(a_in, b_in, c_out, size);
+}
+#endif // AIE_F32_LANES
 
 } // extern "C"

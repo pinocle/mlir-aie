@@ -31,6 +31,12 @@ void eltwise_mul(T_in *a, T_in *b, T_out *c) {
 // see ADD_UNROLL in add.cc.
 #define MUL_UNROLL 4
 
+// Lanes the vector loops walk: bf16 where the vector unit has it, f32 on an
+// architecture without bf16 (AIE_F32_LANES, see aie_arch.h).
+template <typename T> constexpr int eltwise_mul_lanes() {
+  return std::is_same_v<T, float> ? AIE_F32_LANES : AIE_BF16_LANES;
+}
+
 // aie::mul on bf16 yields an accumulator (fp32 products); convert back to
 // T_out explicitly.  Assigning the accumulator straight into a vector<T_out>
 // produces garbage at the 32-wide AIE2P width.
@@ -41,7 +47,7 @@ void eltwise_mul(T_in *a, T_in *b, T_out *c) {
 template <typename T_in, typename T_out, const int N>
 void eltwise_vmul(T_in *__restrict a, T_in *__restrict b, T_out *__restrict c) {
 
-  constexpr int vec_factor = AIE_BF16_LANES;
+  constexpr int vec_factor = eltwise_mul_lanes<T_in>();
   event0();
   auto pA1 = aie::begin_restrict_vector<vec_factor>(a);
   auto pB1 = aie::begin_restrict_vector<vec_factor>(b);
@@ -83,7 +89,7 @@ void eltwise_vmul(T_in *__restrict a, T_in *__restrict b, T_out *__restrict c) {
 template <typename T_in, typename T_out>
 void eltwise_vmul_size(T_in *__restrict a, T_in *__restrict b,
                        T_out *__restrict c, int size) {
-  constexpr int vec_factor = AIE_BF16_LANES;
+  constexpr int vec_factor = eltwise_mul_lanes<T_in>();
   event0();
   auto pA1 = aie::begin_restrict_vector<vec_factor>(a);
   auto pB1 = aie::begin_restrict_vector<vec_factor>(b);
@@ -130,6 +136,7 @@ void eltwise_vmul_size(T_in *__restrict a, T_in *__restrict b,
 
 extern "C" {
 
+#if AIE_BF16_LANES
 void eltwise_mul_bf16_scalar(bfloat16 *a_in, bfloat16 *b_in, bfloat16 *c_out) {
   eltwise_mul<bfloat16, bfloat16, 1024>(a_in, b_in, c_out);
 }
@@ -142,5 +149,17 @@ void eltwise_mul_bf16_vector_size(bfloat16 *a_in, bfloat16 *b_in,
                                   bfloat16 *c_out, int size) {
   eltwise_vmul_size<bfloat16, bfloat16>(a_in, b_in, c_out, size);
 }
+#endif // AIE_BF16_LANES
+
+#if AIE_F32_LANES
+void eltwise_mul_f32_vector(float *a_in, float *b_in, float *c_out) {
+  eltwise_vmul<float, float, 1024>(a_in, b_in, c_out);
+}
+
+void eltwise_mul_f32_vector_size(float *a_in, float *b_in, float *c_out,
+                                  int size) {
+  eltwise_vmul_size<float, float>(a_in, b_in, c_out, size);
+}
+#endif // AIE_F32_LANES
 
 } // extern "C"

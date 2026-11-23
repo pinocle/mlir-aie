@@ -11,6 +11,29 @@
 #include <stdlib.h>
 
 #define REL_WRITE 0
+
+#if AIE_ARCH_AIE1
+// AIE1 has no 2-D address generator (dims_2d_t / add_2d_byte). The same
+// cursor in plain arithmetic: advance `step` bytes per call and return to the
+// start after `num` calls.
+struct dims_2d_t {
+  int num;
+  int step;
+  int count;
+};
+static inline dims_2d_t dims_2d_from_steps(int num, int step, int) {
+  return dims_2d_t{num, step, 0};
+}
+template <typename T>
+static inline const T *add_2d_byte(const T *p, dims_2d_t &d) {
+  const char *b = (const char *)p;
+  if (++d.count == d.num) {
+    d.count = 0;
+    return (const T *)(b - (d.num - 1) * d.step);
+  }
+  return (const T *)(b + d.step);
+}
+#endif
 #define REL_READ 1
 
 #include "../aie_kernel_utils.h"
@@ -931,7 +954,27 @@ static inline void matmul_vectorized_4x8x8_i8_i32(const int8 *__restrict pA,
                                     (k / s) <= 4>(pA, pB, pC);
 }
 
+// AIE1 f32: aie::mmul<4, 2, 4, float, float> is one of the AIE1 shapes for
+// 32-bit operands (AM009 fp32 MAC, 8 lanes); AIE2 has no f32 x f32 mmul.
+template <unsigned m, unsigned k, unsigned n>
+static inline void matmul_vectorized_4x2x4_f32_f32(const float *__restrict pA,
+                                                   const float *__restrict pB,
+                                                   float *__restrict pC) {
+  constexpr int r = 4;
+  constexpr int s = 2;
+  constexpr int t = 4;
+
+  static_assert(m % (2 * r) == 0);
+  static_assert(k % s == 0);
+  static_assert(n % (2 * t) == 0);
+
+  return matmul_vectorized_2x2_mmul<float, float, (m / r), (k / s), (n / t), r,
+                                    s, t, is_b_row_maj, is_c_row_maj>(pA, pB,
+                                                                      pC);
+}
+
 extern "C" {
+
 
 // If you want to compile microkernels with different inner tile sizes,
 // define DIM_M, DIM_K and DIM_N at compile time using -DDIM_M 32 etc.
@@ -976,6 +1019,19 @@ extern "C" {
 
 #ifdef bf16_f32_ONLY
 #define combos(X) X(bfloat16, bf16, float, f32, 4, 8, 4)
+#endif
+
+#ifdef f32_f32_ONLY
+#define combos(X) X(float, f32, float, f32, 4, 2, 4)
+#endif
+
+#if !defined(combos) && AIE_ARCH_AIE1
+// AIE1 has no bf16; the integer shapes are AIE1 shapes too.
+#define combos(X)                                                              \
+  X(int8, i8, int8, i8, 4, 8, 8)                                               \
+  X(int16, i16, int16, i16, 4, 4, 4)                                           \
+  X(int16, i16, int32, i32, 4, 4, 4)                                           \
+  X(float, f32, float, f32, 4, 2, 4)
 #endif
 
 #ifndef combos

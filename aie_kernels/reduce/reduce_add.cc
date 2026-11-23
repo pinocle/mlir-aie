@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits>
 #include <type_traits>
 
 #include "../aie_kernel_utils.h"
@@ -29,6 +30,7 @@ static void _reduce_add_scalar(int32_t *restrict in, int32_t *restrict out,
   return;
 }
 
+#if !AIE_ARCH_AIE1
 static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
                                const int32_t input_size) {
   event0();
@@ -66,8 +68,31 @@ static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
   return;
 }
 
+#else
+// AIE1: the same reduction with the AIE API (8 lanes of 32 bits); the
+// v16int32 intrinsics above are AIE2's.
+template <typename T>
+static void _reduce_add_aie1(T *restrict in, T *restrict out,
+                              const int32_t input_size) {
+  event0();
+  constexpr int32_t L = 8;
+  aie::vector<T, L> acc = aie::broadcast<T, L>(std::is_same_v<T, float> ? (T)0.0f : (T)0);
+  AIE_PREPARE_FOR_PIPELINING
+  for (int32_t i = 0; i < REDUCE_ADD_ELEMS; i += L)
+    acc = aie::add(acc, aie::load_v<L>(in + i));
+  *out = aie::reduce_add(acc);
+  event1();
+}
+
+static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
+                               const int32_t input_size) {
+  _reduce_add_aie1<int32_t>(in, out, input_size);
+}
+#endif // !AIE_ARCH_AIE1
+
 // A bf16 sum accumulates in fp32 and rounds to bf16 once, on the result, to
 // nearest even (the core's default mode rounds down).
+#if AIE_BF16_LANES
 static bfloat16 _round_bf16(float x) {
   aie::rounding_mode saved = aie::swap_rounding(aie::rounding_mode::conv_even);
   bfloat16 r = (bfloat16)x;
@@ -118,7 +143,10 @@ static void _reduce_add_scalar_bf16(bfloat16 *restrict in,
   event1();
 }
 
+#endif // AIE_BF16_LANES
+
 extern "C" {
+#if AIE_BF16_LANES
 void reduce_add_vector_bfloat16(bfloat16 *a_in, bfloat16 *c_out,
                                 int32_t input_size) {
   _reduce_add_vector_bf16(a_in, c_out, input_size);
@@ -127,10 +155,17 @@ void reduce_add_scalar_bfloat16(bfloat16 *a_in, bfloat16 *c_out,
                                 int32_t input_size) {
   _reduce_add_scalar_bf16(a_in, c_out, input_size);
 }
+
+#endif // AIE_BF16_LANES
 void reduce_add_vector(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_add_vector(a_in, c_out, input_size);
 }
 void reduce_add_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_add_scalar(a_in, c_out, input_size);
 }
+#if AIE_F32_LANES
+void reduce_add_vector_f32(float *a_in, float *c_out, int32_t input_size) {
+  _reduce_add_aie1<float>(a_in, c_out, input_size);
+}
+#endif // AIE_F32_LANES
 } // extern "C"

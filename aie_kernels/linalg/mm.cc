@@ -11,7 +11,9 @@
 // not all of AIE2P's (no transpose of an 8x8 int32 C tile), so the choice
 // follows the architecture rather than AIE_TUNED_*. _MM_MAC_DIMS in
 // python/iron/kernels/linalg.py is keyed the same way.
-#if AIE_ARCH_AIE2
+// AIE1 uses the AIE2 header: its mmul tiling is the same, with the shapes
+// AIE1 has (combos below).
+#if AIE_ARCH_AIE2 || AIE_ARCH_AIE1
 #include "mm_aie2.h"
 #else
 #include "mm_aie2p.h"

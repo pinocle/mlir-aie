@@ -42,7 +42,7 @@ void _reduce_max_vector(T *restrict in, T *restrict out,
   }
 #endif
 
-#if AIE_TUNED_AIE2P
+#if AIE_TUNED_AIE2P || AIE_ARCH_AIE1
   *(T *)out = aie::reduce_max(running_max);
 #else
   V after_vector = running_max;
@@ -90,6 +90,7 @@ void _compute_max(T *restrict in1, T *restrict in2, T *restrict out) {
 
 extern "C" {
 
+#if AIE_BF16_LANES
 void reduce_max_vector_bfloat16(bfloat16 *a_in, bfloat16 *c_out,
                                 int32_t input_size) {
   _reduce_max_vector<bfloat16, aie::vector<bfloat16>>(a_in, c_out, input_size);
@@ -104,6 +105,8 @@ void compute_max_bfloat16(bfloat16 *a_in, bfloat16 *b_in, bfloat16 *c_out) {
   _compute_max<bfloat16>(a_in, b_in, c_out);
 }
 
+#endif // AIE_BF16_LANES
+
 void reduce_max_vector(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_max_vector<int32_t, aie::vector<int32_t>>(a_in, c_out, input_size);
 }
@@ -115,5 +118,11 @@ void reduce_max_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
 void compute_max(int32_t *a_in, int32_t *b_in, int32_t *c_out) {
   _compute_max<int32_t>(a_in, b_in, c_out);
 }
+
+#if AIE_F32_LANES
+void reduce_max_vector_f32(float *a_in, float *c_out, int32_t input_size) {
+  _reduce_max_vector<float, aie::vector<float>>(a_in, c_out, input_size);
+}
+#endif // AIE_F32_LANES
 
 } // extern "C"
