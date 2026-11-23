@@ -32,10 +32,12 @@ void eltwise_add(T_in *a, T_in *b, T_out *c) {
 // only the a port has.
 #define ADD_UNROLL 4
 
-// Lanes the vector loops walk: bf16 where the vector unit has it, f32 on an
-// architecture without bf16 (AIE_F32_LANES, see aie_arch.h).
+// Lanes the vector loops walk: bf16 where the vector unit has it; on an
+// architecture without bf16, one vector of AIE_F32_LANES x 32 bits of the
+// element type (AIE1: 8 f32/i32, 16 i16, 32 i8; see aie_arch.h).
 template <typename T> constexpr int eltwise_add_lanes() {
-  return std::is_same_v<T, float> ? AIE_F32_LANES : AIE_BF16_LANES;
+  return std::is_same_v<T, bfloat16> ? AIE_BF16_LANES
+                                     : AIE_F32_LANES * 4 / (int)sizeof(T);
 }
 
 // The tuned paths run one chain per iteration, which pipelines (II1 on AIE2P)
@@ -140,6 +142,10 @@ void eltwise_vadd_size(T_in *__restrict a, T_in *__restrict b,
   event1();
 }
 
+// AIE_KERNELS_TEMPLATES_ONLY: a unit that instantiates the templates above
+// at its own sizes leaves out these entry points, which would otherwise all
+// be linked into a core with 16 KiB of program memory.
+#ifndef AIE_KERNELS_TEMPLATES_ONLY
 extern "C" {
 
 #if AIE_BF16_LANES
@@ -166,6 +172,34 @@ void eltwise_add_f32_vector_size(float *a_in, float *b_in, float *c_out,
                                   int size) {
   eltwise_vadd_size<float, float>(a_in, b_in, c_out, size);
 }
+
+void eltwise_add_i32_vector(int32_t *a_in, int32_t *b_in, int32_t *c_out) {
+  eltwise_vadd<int32_t, int32_t, 1024>(a_in, b_in, c_out);
+}
+
+void eltwise_add_i32_vector_size(int32_t *a_in, int32_t *b_in, int32_t *c_out,
+                                  int size) {
+  eltwise_vadd_size<int32_t, int32_t>(a_in, b_in, c_out, size);
+}
+
+void eltwise_add_i16_vector(int16_t *a_in, int16_t *b_in, int16_t *c_out) {
+  eltwise_vadd<int16_t, int16_t, 1024>(a_in, b_in, c_out);
+}
+
+void eltwise_add_i16_vector_size(int16_t *a_in, int16_t *b_in, int16_t *c_out,
+                                  int size) {
+  eltwise_vadd_size<int16_t, int16_t>(a_in, b_in, c_out, size);
+}
+
+void eltwise_add_i8_vector(int8_t *a_in, int8_t *b_in, int8_t *c_out) {
+  eltwise_vadd<int8_t, int8_t, 1024>(a_in, b_in, c_out);
+}
+
+void eltwise_add_i8_vector_size(int8_t *a_in, int8_t *b_in, int8_t *c_out,
+                                  int size) {
+  eltwise_vadd_size<int8_t, int8_t>(a_in, b_in, c_out, size);
+}
 #endif // AIE_F32_LANES
 
 } // extern "C"
+#endif // AIE_KERNELS_TEMPLATES_ONLY

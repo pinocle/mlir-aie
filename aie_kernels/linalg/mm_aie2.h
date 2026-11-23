@@ -954,12 +954,12 @@ static inline void matmul_vectorized_4x8x8_i8_i32(const int8 *__restrict pA,
                                     (k / s) <= 4>(pA, pB, pC);
 }
 
-// AIE1 f32: aie::mmul<4, 2, 4, float, float> is one of the AIE1 shapes for
-// 32-bit operands (AM009 fp32 MAC, 8 lanes); AIE2 has no f32 x f32 mmul.
-template <unsigned m, unsigned k, unsigned n>
-static inline void matmul_vectorized_4x2x4_f32_f32(const float *__restrict pA,
-                                                   const float *__restrict pB,
-                                                   float *__restrict pC) {
+// AIE1 32-bit operands: aie::mmul<4, 2, 4, T, T> is one of the AIE1 shapes for
+// f32 (AM009 fp32 MAC, 8 lanes) and i32; AIE2 has neither as an mmul.
+template <typename T, unsigned m, unsigned k, unsigned n>
+static inline void matmul_vectorized_4x2x4_32b(const T *__restrict pA,
+                                               const T *__restrict pB,
+                                               T *__restrict pC) {
   constexpr int r = 4;
   constexpr int s = 2;
   constexpr int t = 4;
@@ -968,9 +968,22 @@ static inline void matmul_vectorized_4x2x4_f32_f32(const float *__restrict pA,
   static_assert(k % s == 0);
   static_assert(n % (2 * t) == 0);
 
-  return matmul_vectorized_2x2_mmul<float, float, (m / r), (k / s), (n / t), r,
-                                    s, t, is_b_row_maj, is_c_row_maj>(pA, pB,
-                                                                      pC);
+  return matmul_vectorized_2x2_mmul<T, T, (m / r), (k / s), (n / t), r, s, t,
+                                    is_b_row_maj, is_c_row_maj>(pA, pB, pC);
+}
+
+template <unsigned m, unsigned k, unsigned n>
+static inline void matmul_vectorized_4x2x4_f32_f32(const float *__restrict pA,
+                                                   const float *__restrict pB,
+                                                   float *__restrict pC) {
+  matmul_vectorized_4x2x4_32b<float, m, k, n>(pA, pB, pC);
+}
+
+template <unsigned m, unsigned k, unsigned n>
+static inline void matmul_vectorized_4x2x4_i32_i32(const int32 *__restrict pA,
+                                                   const int32 *__restrict pB,
+                                                   int32 *__restrict pC) {
+  matmul_vectorized_4x2x4_32b<int32, m, k, n>(pA, pB, pC);
 }
 
 extern "C" {
@@ -1025,12 +1038,18 @@ extern "C" {
 #define combos(X) X(float, f32, float, f32, 4, 2, 4)
 #endif
 
+#ifdef i32_i32_ONLY
+#define combos(X) X(int32, i32, int32, i32, 4, 2, 4)
+#endif
+
 #if !defined(combos) && AIE_ARCH_AIE1
-// AIE1 has no bf16; the integer shapes are AIE1 shapes too.
+// AIE1 has no bf16; the integer shapes are AIE1 shapes too, and AIE1 adds
+// 32-bit (i32, f32) operands.
 #define combos(X)                                                              \
   X(int8, i8, int8, i8, 4, 8, 8)                                               \
   X(int16, i16, int16, i16, 4, 4, 4)                                           \
   X(int16, i16, int32, i32, 4, 4, 4)                                           \
+  X(int32, i32, int32, i32, 4, 2, 4)                                           \
   X(float, f32, float, f32, 4, 2, 4)
 #endif
 

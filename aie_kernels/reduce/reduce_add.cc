@@ -69,14 +69,14 @@ static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
 }
 
 #else
-// AIE1: the same reduction with the AIE API (8 lanes of 32 bits); the
+// AIE1: the same reduction with the AIE API (one 256-bit vector); the
 // v16int32 intrinsics above are AIE2's.
 template <typename T>
 static void _reduce_add_aie1(T *restrict in, T *restrict out,
                               const int32_t input_size) {
   event0();
-  constexpr int32_t L = 8;
-  aie::vector<T, L> acc = aie::broadcast<T, L>(std::is_same_v<T, float> ? (T)0.0f : (T)0);
+  constexpr int32_t L = AIE_F32_LANES * 4 / (int32_t)sizeof(T);
+  aie::vector<T, L> acc = aie::broadcast<T, L>((T)0);
   AIE_PREPARE_FOR_PIPELINING
   for (int32_t i = 0; i < REDUCE_ADD_ELEMS; i += L)
     acc = aie::add(acc, aie::load_v<L>(in + i));
@@ -166,6 +166,9 @@ void reduce_add_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
 #if AIE_F32_LANES
 void reduce_add_vector_f32(float *a_in, float *c_out, int32_t input_size) {
   _reduce_add_aie1<float>(a_in, c_out, input_size);
+}
+void reduce_add_vector_i16(int16_t *a_in, int16_t *c_out, int32_t input_size) {
+  _reduce_add_aie1<int16_t>(a_in, c_out, input_size);
 }
 #endif // AIE_F32_LANES
 } // extern "C"

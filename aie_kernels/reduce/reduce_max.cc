@@ -123,6 +123,12 @@ void compute_max(int32_t *a_in, int32_t *b_in, int32_t *c_out) {
 void reduce_max_vector_f32(float *a_in, float *c_out, int32_t input_size) {
   _reduce_max_vector<float, aie::vector<float>>(a_in, c_out, input_size);
 }
+void reduce_max_vector_i16(int16_t *a_in, int16_t *c_out, int32_t input_size) {
+  _reduce_max_vector<int16_t, aie::vector<int16_t>>(a_in, c_out, input_size);
+}
+void reduce_max_vector_i8(int8_t *a_in, int8_t *c_out, int32_t input_size) {
+  _reduce_max_vector<int8_t, aie::vector<int8_t>>(a_in, c_out, input_size);
+}
 #endif // AIE_F32_LANES
 
 } // extern "C"
