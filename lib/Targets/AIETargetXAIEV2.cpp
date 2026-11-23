@@ -19,6 +19,8 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Path.h"
 
 #include <limits>
 
@@ -26,6 +28,12 @@ using namespace mlir;
 using namespace xilinx;
 using namespace xilinx::AIE;
 using namespace xilinx::AIEX;
+
+// A deployed host library may live at a different path from its build tree.
+static llvm::cl::opt<std::string> elfRelativeTo(
+    "xaie-elf-relative-to",
+    llvm::cl::desc("Emit libxaie ELF paths relative to this deployment directory"),
+    llvm::cl::init(""));
 
 // This string is output at the top of the lowered C++ code.
 static const char *xaie_cpp_file_header = R"code(
@@ -421,7 +429,7 @@ xilinx::AIE::AIETranslateToXAIEV2(ModuleOp module, raw_ostream &output,
   output << "  aie_libxaie_ctx_t *ctx = new aie_libxaie_ctx_t;\n";
   output << "  if (!ctx)\n";
   output << "    return 0;\n";
-  output << "  ctx->XAieConfig = new XAie_Config;\n";
+  output << "  ctx->XAieConfig = new XAie_Config{};\n";
   output << "  if (!ctx->XAieConfig)\n";
   output << "    return 0;\n";
   output << "  ctx->XAieDevInst = new XAie_DevInst;\n";
@@ -507,6 +515,12 @@ xilinx::AIE::AIETranslateToXAIEV2(ModuleOp module, raw_ostream &output,
         std::string fileName;
         if (auto fileAttr = coreOp.getElfFile()) {
           fileName = fileAttr.value().str();
+          if (!elfRelativeTo.empty()) {
+            llvm::SmallString<256> relative(fileName);
+            if (!llvm::sys::path::replace_path_prefix(relative, elfRelativeTo, "."))
+              return coreOp.emitOpError("ELF is outside --xaie-elf-relative-to");
+            fileName = relative.str().str();
+          }
         } else {
           return coreOp.emitOpError()
                  << "Expected lowered ELF file to be given as attribute "
@@ -621,6 +635,9 @@ xilinx::AIE::AIETranslateToXAIEV2(ModuleOp module, raw_ostream &output,
   output << "} // mlir_aie_configure_dmas\n\n";
 
   for (auto op : targetOp.getOps<ExternalBufferOp>()) {
+    // Host-controlled shim DMA needs no setter for an unused external buffer.
+    if (op.getResult().use_empty())
+      continue;
     if (op.hasName()) {
       output << "static u64 _mlir_aie_external_" << op.name().getValue()
              << ";\n";
@@ -694,10 +711,16 @@ xilinx::AIE::AIETranslateToXAIEV2(ModuleOp module, raw_ostream &output,
     int row = tile.rowIndex();
     int lockID = lock.getLockIDValue();
     auto init = lock.getInit();
-    if (init)
-      output << "__mlir_aie_try(XAie_LockSetValue(" << deviceInstRef << ", "
+    if (init) {
+      // aienginev2's AIE1 _XAie_LockSetValue returns
+      // XAIE_FEATURE_NOT_SUPPORTED; binary locks are initialized by release.
+      output << "__mlir_aie_try("
+             << (arch == AIEArch::AIE1 ? "XAie_LockRelease(" : "XAie_LockSetValue(")
+             << deviceInstRef << ", "
              << tileLocStr(col, row) << ", "
-             << "XAie_LockInit(" << lockID << ", " << *init << ")));\n";
+             << "XAie_LockInit(" << lockID << ", " << *init << ")"
+             << (arch == AIEArch::AIE1 ? ", 0" : "") << "));\n";
+    }
   });
   output << "return XAIE_OK;\n";
   output << "} // mlir_aie_initialize_locks\n";
