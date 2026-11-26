@@ -5,10 +5,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <limits>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits>
 #include <type_traits>
 
 #include "../aie_kernel_utils.h"
@@ -73,7 +73,7 @@ static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
 // v16int32 intrinsics above are AIE2's.
 template <typename T>
 static void _reduce_add_aie1(T *restrict in, T *restrict out,
-                              const int32_t input_size) {
+                             const int32_t input_size) {
   event0();
   constexpr int32_t L = AIE_F32_LANES * 4 / (int32_t)sizeof(T);
   aie::vector<T, L> acc = aie::broadcast<T, L>((T)0);
@@ -164,11 +164,15 @@ void reduce_add_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
   _reduce_add_scalar(a_in, c_out, input_size);
 }
 #if AIE_F32_LANES
+#if !AIE_ONE_TYPE || defined(f32_ONLY)
 void reduce_add_vector_f32(float *a_in, float *c_out, int32_t input_size) {
   _reduce_add_aie1<float>(a_in, c_out, input_size);
 }
+#endif // f32
+#if !AIE_ONE_TYPE || defined(i16_ONLY)
 void reduce_add_vector_i16(int16_t *a_in, int16_t *c_out, int32_t input_size) {
   _reduce_add_aie1<int16_t>(a_in, c_out, input_size);
 }
+#endif // i16
 #endif // AIE_F32_LANES
 } // extern "C"

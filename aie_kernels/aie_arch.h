@@ -88,4 +88,15 @@
 #define AIE2_MINSIZE
 #endif
 
+// The f32-lane (AIE1) entry points of one element type only: a kernel built
+// with -Df32_ONLY (or i32_, i16_, i8_ONLY), as linalg/mm.cc is with
+// -Df32_f32_ONLY, defines that type's, since a core links all of an object's
+// functions into 16 KiB of program memory.
+#if defined(f32_ONLY) || defined(i32_ONLY) || defined(i16_ONLY) ||             \
+    defined(i8_ONLY)
+#define AIE_ONE_TYPE 1
+#else
+#define AIE_ONE_TYPE 0
+#endif
+
 #endif

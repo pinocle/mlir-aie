@@ -988,7 +988,6 @@ static inline void matmul_vectorized_4x2x4_i32_i32(const int32 *__restrict pA,
 
 extern "C" {
 
-
 // If you want to compile microkernels with different inner tile sizes,
 // define DIM_M, DIM_K and DIM_N at compile time using -DDIM_M 32 etc.
 // These dimensions must be divisible by the r, s, t dimensions used in

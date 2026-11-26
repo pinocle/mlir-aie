@@ -61,7 +61,7 @@ void _reduce_min_vector(int32_t *restrict in, int32_t *restrict out,
 // v16int32 intrinsics above are AIE2's.
 template <typename T>
 static void _reduce_min_aie1(T *restrict in, T *restrict out,
-                              const int32_t input_size) {
+                             const int32_t input_size) {
   event0();
   constexpr int32_t L = AIE_F32_LANES * 4 / (int32_t)sizeof(T);
   aie::vector<T, L> acc = aie::broadcast<T, L>(std::numeric_limits<T>::max());
@@ -156,15 +156,21 @@ void reduce_min_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
 }
 
 #if AIE_F32_LANES
+#if !AIE_ONE_TYPE || defined(f32_ONLY)
 void reduce_min_vector_f32(float *a_in, float *c_out, int32_t input_size) {
   _reduce_min_aie1<float>(a_in, c_out, input_size);
 }
+#endif // f32
+#if !AIE_ONE_TYPE || defined(i16_ONLY)
 void reduce_min_vector_i16(int16_t *a_in, int16_t *c_out, int32_t input_size) {
   _reduce_min_aie1<int16_t>(a_in, c_out, input_size);
 }
+#endif // i16
+#if !AIE_ONE_TYPE || defined(i8_ONLY)
 void reduce_min_vector_i8(int8_t *a_in, int8_t *c_out, int32_t input_size) {
   _reduce_min_aie1<int8_t>(a_in, c_out, input_size);
 }
+#endif // i8
 #endif // AIE_F32_LANES
 
 } // extern "C"

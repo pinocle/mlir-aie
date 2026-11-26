@@ -34,7 +34,8 @@ void eltwise_mul(T_in *a, T_in *b, T_out *c) {
 // Lanes the vector loops walk: bf16 where the vector unit has it; on an
 // architecture without bf16, one vector of AIE_F32_LANES x 32 bits of the
 // element type (AIE1: 8 f32/i32, 16 i16, 32 i8; see aie_arch.h).
-template <typename T> constexpr int eltwise_mul_lanes() {
+template <typename T>
+constexpr int eltwise_mul_lanes() {
   return std::is_same_v<T, bfloat16> ? AIE_BF16_LANES
                                      : AIE_F32_LANES * 4 / (int)sizeof(T);
 }
@@ -136,10 +137,6 @@ void eltwise_vmul_size(T_in *__restrict a, T_in *__restrict b,
   event1();
 }
 
-// AIE_KERNELS_TEMPLATES_ONLY: a unit that instantiates the templates above
-// at its own sizes leaves out these entry points, which would otherwise all
-// be linked into a core with 16 KiB of program memory.
-#ifndef AIE_KERNELS_TEMPLATES_ONLY
 extern "C" {
 
 #if AIE_BF16_LANES
@@ -158,42 +155,49 @@ void eltwise_mul_bf16_vector_size(bfloat16 *a_in, bfloat16 *b_in,
 #endif // AIE_BF16_LANES
 
 #if AIE_F32_LANES
+#if !AIE_ONE_TYPE || defined(f32_ONLY)
 void eltwise_mul_f32_vector(float *a_in, float *b_in, float *c_out) {
   eltwise_vmul<float, float, 1024>(a_in, b_in, c_out);
 }
 
 void eltwise_mul_f32_vector_size(float *a_in, float *b_in, float *c_out,
-                                  int size) {
+                                 int size) {
   eltwise_vmul_size<float, float>(a_in, b_in, c_out, size);
 }
+#endif // f32
 
+#if !AIE_ONE_TYPE || defined(i32_ONLY)
 void eltwise_mul_i32_vector(int32_t *a_in, int32_t *b_in, int32_t *c_out) {
   eltwise_vmul<int32_t, int32_t, 1024>(a_in, b_in, c_out);
 }
 
 void eltwise_mul_i32_vector_size(int32_t *a_in, int32_t *b_in, int32_t *c_out,
-                                  int size) {
+                                 int size) {
   eltwise_vmul_size<int32_t, int32_t>(a_in, b_in, c_out, size);
 }
+#endif // i32
 
+#if !AIE_ONE_TYPE || defined(i16_ONLY)
 void eltwise_mul_i16_vector(int16_t *a_in, int16_t *b_in, int16_t *c_out) {
   eltwise_vmul<int16_t, int16_t, 1024>(a_in, b_in, c_out);
 }
 
 void eltwise_mul_i16_vector_size(int16_t *a_in, int16_t *b_in, int16_t *c_out,
-                                  int size) {
+                                 int size) {
   eltwise_vmul_size<int16_t, int16_t>(a_in, b_in, c_out, size);
 }
+#endif // i16
 
+#if !AIE_ONE_TYPE || defined(i8_ONLY)
 void eltwise_mul_i8_vector(int8_t *a_in, int8_t *b_in, int8_t *c_out) {
   eltwise_vmul<int8_t, int8_t, 1024>(a_in, b_in, c_out);
 }
 
 void eltwise_mul_i8_vector_size(int8_t *a_in, int8_t *b_in, int8_t *c_out,
-                                  int size) {
+                                int size) {
   eltwise_vmul_size<int8_t, int8_t>(a_in, b_in, c_out, size);
 }
+#endif // i8
 #endif // AIE_F32_LANES
 
 } // extern "C"
-#endif // AIE_KERNELS_TEMPLATES_ONLY

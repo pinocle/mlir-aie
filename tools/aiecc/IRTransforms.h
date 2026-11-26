@@ -1254,6 +1254,30 @@ inline std::string downgradeIRForChess(llvm::StringRef ir) {
              "inaccessiblemem_or_argmemonly writeonly");
   replaceAll("captures(none)", "nocapture");
   replaceAll("getelementptr inbounds nuw", "getelementptr inbounds");
+  // Newer LLVM prints infinities and the default NaN of float and double as
+  // words (`float -inf`, a max-pool's initial value); older LLVM reads only
+  // the hexadecimal double form, which both types use.
+  for (llvm::StringRef type : {"float ", "double "}) {
+    const std::pair<llvm::StringRef, llvm::StringRef> words[] = {
+        {"-inf", "0xFFF0000000000000"}, {"+inf", "0x7FF0000000000000"},
+        {"inf", "0x7FF0000000000000"},  {"-nan", "0xFFF8000000000000"},
+        {"+nan", "0x7FF8000000000000"}, {"nan", "0x7FF8000000000000"}};
+    for (auto [word, hex] : words) {
+      std::string from = (type + word).str();
+      for (size_t p = 0; (p = result.find(from, p)) != std::string::npos;) {
+        size_t end = p + from.size();
+        if (end < result.size() &&
+            (std::isalnum(static_cast<unsigned char>(result[end])) ||
+             result[end] == '_' || result[end] == '(')) {
+          p = end;
+          continue;
+        }
+        std::string to = (type + hex).str();
+        result.replace(p, from.size(), to);
+        p += to.size();
+      }
+    }
+  }
   // Drop `nocreateundeforpoison` along with its trailing whitespace.
   for (size_t p = 0;
        (p = result.find("nocreateundeforpoison", p)) != std::string::npos;) {
